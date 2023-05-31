@@ -1,63 +1,62 @@
 package Cliente;
 
-import java.io.BufferedInputStream;
-import java.io.FileOutputStream;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.net.Socket;
 
 public class client {
-    private static final String SERVER_IP = "127.0.0.1"; // IP del servidor
-    private static final int SERVER_PORT = 3000; // Puerto del servidor
-    private static final String LOCAL_DIRECTORY = "videos/"; // Directorio local para almacenar los videos
+
+    private static final String SERVER_IP = "localhost";
+    private static final int SERVER_PORT = 3000;
 
     public static void main(String[] args) {
         try {
             Socket socket = new Socket(SERVER_IP, SERVER_PORT);
-            System.out.println("Conectado al servidor " + SERVER_IP + ":" + SERVER_PORT);
+            System.out.println("Se estableció la conexión con IP: " + SERVER_IP + ", puerto: " + SERVER_PORT);
 
-            // Leer la lista de videos disponibles desde el servidor
-            InputStream inputStream = socket.getInputStream();
-            BufferedInputStream bufferedInputStream = new BufferedInputStream(inputStream);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
 
-            byte[] buffer = new byte[1024];
-            int bytesRead = bufferedInputStream.read(buffer);
-
-            System.out.println("Videos disponibles:");
-
-            while (bytesRead != -1) {
-                String videoName = new String(buffer, 0, bytesRead);
-                System.out.println(videoName);
-
-                // Descargar el video desde el servidor
-                downloadVideo(socket, videoName);
-
-                // Leer el siguiente nombre de video
-                bytesRead = bufferedInputStream.read(buffer);
+            // Leer la lista de videos disponibles del servidor
+            String videoList;
+            while ((videoList = reader.readLine()) != null) {
+                System.out.println(videoList);
             }
 
-            // Cerrar la conexión
+            // Leer la selección del video del usuario
+            BufferedReader userInputReader = new BufferedReader(new InputStreamReader(System.in));
+            System.out.print("Ingrese el nombre del video que desea reproducir (o 'exit' para salir): ");
+            String selectedVideo;
+
+            while ((selectedVideo = userInputReader.readLine()) != null) {
+                if (selectedVideo.equalsIgnoreCase("exit")) {
+                    break;
+                }
+
+                // Enviar la selección del video al servidor
+                writer.write(selectedVideo);
+                writer.newLine();
+                writer.flush();
+
+                // Leer y mostrar el video recibido del servidor
+                byte[] buffer = new byte[1024];
+                int bytesRead;
+                while ((bytesRead = socket.getInputStream().read(buffer)) != -1) {
+                    // Procesar los datos del video recibidos
+                    // Aquí puedes realizar la lógica para reproducir el video o guardar los datos recibidos
+                    System.out.println("Datos recibidos: " + new String(buffer, 0, bytesRead));
+                }
+
+                System.out.print("Ingrese el nombre del video que desea reproducir (o 'exit' para salir): ");
+            }
+
+            // Cerrar la conexión con el servidor
             socket.close();
-            System.out.println("Conexión cerrada");
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-
-    private static void downloadVideo(Socket socket, String videoName) throws IOException {
-        InputStream inputStream = socket.getInputStream();
-        BufferedInputStream bufferedInputStream = new BufferedInputStream(inputStream);
-
-        FileOutputStream fileOutputStream = new FileOutputStream(LOCAL_DIRECTORY + videoName);
-        byte[] buffer = new byte[1024];
-        int bytesRead;
-
-        while ((bytesRead = bufferedInputStream.read(buffer)) != -1) {
-            fileOutputStream.write(buffer, 0, bytesRead);
-        }
-
-        fileOutputStream.close();
-        System.out.println("Video descargado: " + videoName);
-    }
 }
-

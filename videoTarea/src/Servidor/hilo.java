@@ -1,20 +1,21 @@
 package Servidor;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
+public class hilo extends Thread {
 
-public class hilo extends Thread{
-    
-    private static final String Directorio = "videos/";
-    
+    private static final String Directorio = "Servidor/Videos/";
+
     private final Socket clientSocket;
 
     public hilo(Socket clientSocket) {
@@ -25,17 +26,20 @@ public class hilo extends Thread{
     public void run() {
         try {
             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
-            // Obtener la lista de videos disponibles
-                List<String> videoList = getVideoList();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
-                // Enviar la lista de videos al cliente
-                for (String video : videoList) {
-                    writer.write(video);
-                    writer.newLine();
-                }
-                writer.flush();
+            // Obtener la lista de videos disponibles
+            List<String> videoList = getVideoList();
+
+            // Enviar la lista de videos al cliente
+            for (String video : videoList) {
+                writer.write(video);
+                writer.newLine();
+            }
+            writer.flush();
+
             // Leer el nombre del video seleccionado por el cliente
-            String selectedVideo = readSelectedVideo();
+            String selectedVideo = readSelectedVideo(reader);
 
             // Verificar si el video existe en el servidor
             File videoFile = new File(Directorio + selectedVideo);
@@ -46,22 +50,22 @@ public class hilo extends Thread{
             }
 
             // Enviar el video al cliente
-            sendVideo(videoFile);
+            sendVideo(videoFile, clientSocket);
+
+            // Cerrar la conexión con el cliente
+            clientSocket.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private String readSelectedVideo() throws IOException {
-        BufferedInputStream inputStream = new BufferedInputStream(clientSocket.getInputStream());
-        byte[] buffer = new byte[1024];
-        int bytesRead = inputStream.read(buffer);
-        String selectedVideo = new String(buffer, 0, bytesRead).trim();
+    private String readSelectedVideo(BufferedReader reader) throws IOException {
+        String selectedVideo = reader.readLine();
         System.out.println("Cliente seleccionó el video: " + selectedVideo);
         return selectedVideo;
     }
 
-    private void sendVideo(File videoFile) throws IOException {
+    private void sendVideo(File videoFile, Socket clientSocket) throws IOException {
         BufferedInputStream bufferedInputStream = new BufferedInputStream(new FileInputStream(videoFile));
         byte[] buffer = new byte[1024];
         int bytesRead;
@@ -69,24 +73,22 @@ public class hilo extends Thread{
             clientSocket.getOutputStream().write(buffer, 0, bytesRead);
         }
         bufferedInputStream.close();
-        clientSocket.close();
         System.out.println("Video enviado al cliente.");
     }
-    
-    private List<String> getVideoList() {
-            List<String> videoList = new ArrayList<>();
-            File videoDirectory = new File(Directorio);
-            File[] videoFiles = videoDirectory.listFiles();
 
-            if (videoFiles != null && videoFiles.length > 0) {
-                for (File videoFile : videoFiles) {
-                    if (videoFile.isFile()) {
-                        videoList.add(videoFile.getName());
-                    }
+    private List<String> getVideoList() {
+        List<String> videoList = new ArrayList<>();
+        File videoDirectory = new File(Directorio);
+        File[] videoFiles = videoDirectory.listFiles();
+
+        if (videoFiles != null && videoFiles.length > 0) {
+            for (File videoFile : videoFiles) {
+                if (videoFile.isFile()) {
+                    videoList.add(videoFile.getName());
                 }
             }
-
-            return videoList;
         }
-    
+
+        return videoList;
+    }
 }
