@@ -23,11 +23,11 @@ public class server {
     public static void main(String[] args) {
         try {
             ServerSocket serverSocket = new ServerSocket(PORT);
-            System.out.println("Servidor esperando conexiones en el puerto " + PORT + "...");
+            System.out.println("Servidor esperando conexiones");
 
             while (true) {
                 Socket clientSocket = serverSocket.accept();
-                System.out.println("Cliente conectado desde " + clientSocket.getInetAddress());
+                System.out.println("Cliente: " + clientSocket.getInetAddress());
 
                 // Iniciar un hilo para manejar la solicitud del cliente
                 hilo client = new hilo(clientSocket);

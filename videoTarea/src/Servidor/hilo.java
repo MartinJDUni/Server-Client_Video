@@ -1,21 +1,23 @@
 package Servidor;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedWriter;
+import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.List;
 
 
 public class hilo extends Thread{
     
-    private static final String Directorio = "videos/";
+    private static String Directorio = "C:\\React\\Server-Client_Video"
+            + "\\videoTarea\\src\\Videos";
+    private BufferedOutputStream out;
+    private DataInputStream input;
     
-    private final Socket clientSocket;
+    private  Socket clientSocket;
+    
 
     public hilo(Socket clientSocket) {
         this.clientSocket = clientSocket;
@@ -24,69 +26,51 @@ public class hilo extends Thread{
     @Override
     public void run() {
         try {
-            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
-            // Obtener la lista de videos disponibles
-                List<String> videoList = getVideoList();
-
-                // Enviar la lista de videos al cliente
-                for (String video : videoList) {
-                    writer.write(video);
-                    writer.newLine();
-                }
-                writer.flush();
-            // Leer el nombre del video seleccionado por el cliente
-            String selectedVideo = readSelectedVideo();
-
-            // Verificar si el video existe en el servidor
-            File videoFile = new File(Directorio + selectedVideo);
-            if (!videoFile.exists()) {
-                System.out.println("El video seleccionado no existe: " + selectedVideo);
-                clientSocket.close();
-                return;
-            }
-
-            // Enviar el video al cliente
-            sendVideo(videoFile);
-        } catch (IOException e) {
-            e.printStackTrace();
+            out = new BufferedOutputStream(clientSocket.getOutputStream());
+            input = new DataInputStream(clientSocket.getInputStream());
+            VideoList();
+            String name = input.readUTF();
+            Send(name);
+            
+        } catch (IOException ex) {
+            System.out.println("Error en el servidor");
         }
+     
     }
-
-    private String readSelectedVideo() throws IOException {
-        BufferedInputStream inputStream = new BufferedInputStream(clientSocket.getInputStream());
-        byte[] buffer = new byte[1024];
-        int bytesRead = inputStream.read(buffer);
-        String selectedVideo = new String(buffer, 0, bytesRead).trim();
-        System.out.println("Cliente seleccionó el video: " + selectedVideo);
-        return selectedVideo;
-    }
-
-    private void sendVideo(File videoFile) throws IOException {
-        BufferedInputStream bufferedInputStream = new BufferedInputStream(new FileInputStream(videoFile));
-        byte[] buffer = new byte[1024];
+    //Envia el video al cliente
+    private void Send(String nameFile) throws IOException {
+        System.out.println(nameFile);
+        File video = new File(Directorio+nameFile);
+        byte[] Buff = new byte[1024];
+        
+        FileInputStream in = new FileInputStream(video);
+        
         int bytesRead;
-        while ((bytesRead = bufferedInputStream.read(buffer)) != -1) {
-            clientSocket.getOutputStream().write(buffer, 0, bytesRead);
+        while((bytesRead = in.read(Buff)) != -1){
+            out.write(Buff, 0, bytesRead);
         }
-        bufferedInputStream.close();
-        clientSocket.close();
-        System.out.println("Video enviado al cliente.");
     }
-    
-    private List<String> getVideoList() {
-            List<String> videoList = new ArrayList<>();
-            File videoDirectory = new File(Directorio);
-            File[] videoFiles = videoDirectory.listFiles();
-
-            if (videoFiles != null && videoFiles.length > 0) {
-                for (File videoFile : videoFiles) {
-                    if (videoFile.isFile()) {
-                        videoList.add(videoFile.getName());
-                    }
+    //Metodo el cual envia la lista para ser vista por el usuario
+    private void VideoList() throws IOException {
+        //El StringBuidel es para concatenar cadenas de texto
+        StringBuilder videoList = new StringBuilder();
+        File videoDirectory = new File(Directorio);
+        File[] videoFiles = videoDirectory.listFiles();
+        //Aca es donde se concatenan los nombre de videos
+        if (videoFiles != null && videoFiles.length > 0) {
+            for (File videoFile : videoFiles) {
+                if (videoFile.isFile()) {
+                    videoList.append(videoFile.getName()).append("\n");
                 }
             }
-
-            return videoList;
         }
+        String List = videoList.toString();
+        System.out.println(List);
+        DataOutputStream output = new DataOutputStream(
+                clientSocket.getOutputStream());
+        output.writeUTF(List);
+        output.close();
+        
+     }
     
 }
